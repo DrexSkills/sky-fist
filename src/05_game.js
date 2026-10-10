@@ -45,9 +45,10 @@ function updScript(dt){const s=Game.script;if(!s||!s.wait)return;const w=s.wait;
 const SPEAKERS={kai:{n:'Kai',img:'pKai'},lina:{n:'Lina',img:'pLina'},gorrak:{n:'King Gorrak',img:'pGorrak',right:1},ren:{n:'Ren',img:'pRen',right:1},
   bruno:{n:'Bruno',right:1},gale:{n:'Gale',right:1},blaze:{n:'Blaze',right:1},coral:{n:'Coral',right:1},rocco:{n:'Rocco',right:1}};
 const PORTRAITS={};
-function makePortraits(){for(const k of['bruno','gale','blaze','coral','rocco']){const c=document.createElement('canvas');c.width=28;c.height=28;const prev=G;G=c.getContext('2d');
-  const g=G.createLinearGradient(0,0,0,28);g.addColorStop(0,'#1a2a5a');g.addColorStop(1,'#0a1430');G.fillStyle=g;G.fillRect(0,0,28,28);
-  const d=DEF[k];const p=POSES.stand(0);const P=fk(d,p);const feet=Math.max(P.bf.y,P.ff.y)+1;const hy=P.head.y-feet;drawFig(d,p,14,14-hy+(d.s>1.2?3:1),1,{t:0});G=prev;PORTRAITS[k]=c.toDataURL();}}
+function makePortraits(){const prev=G;for(const k of['bruno','gale','blaze','coral','rocco']){
+  const tmp=document.createElement('canvas');tmp.width=90;tmp.height=90;G=tmp.getContext('2d');const d=DEF[k];const S=drawFig(d,POSES.stand(0),45,86,1,{t:0});
+  const c=document.createElement('canvas');c.width=20;c.height=20;const cx=c.getContext('2d');const g=cx.createLinearGradient(0,0,0,20);g.addColorStop(0,'#2a3f80');g.addColorStop(1,'#0a1430');cx.fillStyle=g;cx.fillRect(0,0,20,20);
+  cx.drawImage(tmp,Math.round(S.head.x-9),Math.round(S.head.y-11),20,20,0,0,20,20);PORTRAITS[k]=c.toDataURL();}G=prev;}
 const Dlg={on:false,full:'',shown:0,tap:false,lastBlip:0};
 function showDialog(who,text){const S=SPEAKERS[who]||{n:who};const el=$('dialog');
   $('dWho').textContent=S.n;$('dTxt').textContent='';const port=S.img?ASSETS[S.img]:PORTRAITS[who];$('dPort').style.backgroundImage=port?`url(${port})`:'none';
@@ -74,15 +75,33 @@ function fadeTo(cb){Game.fadeDir=1;Game.fadeCb=cb;}
 
 function goTitle(){Game.mode='title';Game.script=null;closeDialog();Game.boss=null;show('s-title');SND.music('title');$('skip').classList.remove('on');}
 function openMap(){Game.mode='map';Game.script=null;closeDialog();Game.boss=null;$('skip').classList.remove('on');buildMap();show('s-map');SND.music('title');}
+let mapSel=1;
 function buildMap(){const box=$('isles');box.innerHTML='';let fl=0;
   ISLANDS.forEach((I,i)=>{const n=i+1;const un=n<=SAVE.unlocked;if(SAVE.flowers[n])fl++;
-    const b=document.createElement('button');b.className='isle'+(un?'':' locked')+(n===SAVE.unlocked&&!SAVE.ranks[n]?' next':'');
-    b.innerHTML=`<div class="img" style="background-image:url(${ASSETS['isl'+n]})"></div><div class="lbl"><b>${n}. ${I.name}</b>${un?CHAMPS[I.boss].name+(SAVE.flowers[n]?' · ✿':''):'???'}</div>`+(SAVE.ranks[n]?`<div class="rank">${SAVE.ranks[n]}</div>`:'');
-    b.onclick=()=>{if(!un){SND.play('blip');return;}SND.play('select');fadeTo(()=>startIsland(n));};box.appendChild(b);});
-  $('mapInfo').textContent=`Lina's flowers found: ${fl}/7`;}
+    const b=document.createElement('button');b.className='chip'+(un?'':' locked');b.dataset.n=n;
+    b.innerHTML=`<div class="th" style="background-image:url(${ASSETS['isl'+n]})"></div><div class="nm">${I.name}<small>Chapter ${n}${un?' · '+CHAMPS[I.boss].name:''}</small></div><div class="rk">${SAVE.ranks[n]||(un?'':'🔒')}</div>`;
+    b.onclick=()=>{if(!un){SND.play('blip');return;}if(mapSel===n&&isTouch===false){}SND.play('blip');selectChapter(n);};
+    b.ondblclick=()=>{if(un)playChapter(n);};
+    box.appendChild(b);});
+  $('mapInfo').textContent=`Lina's flowers ${fl}/7`;
+  selectChapter(Math.min(SAVE.unlocked,7));}
+function selectChapter(n){mapSel=n;const I=ISLANDS[n-1];
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('sel',+c.dataset.n===n));
+  $('pvImg').style.backgroundImage=`url(${ASSETS['isl'+n]})`;$('pvNum').textContent=`Chapter ${n}`;$('pvName').textContent=I.name;$('pvDesc').textContent=I.desc;
+  $('pvBoss').textContent=CHAMPS[I.boss].name;$('pvRank').textContent=SAVE.ranks[n]||'None yet';$('pvFlower').textContent=SAVE.flowers[n]?'Found ✿':'Not found';
+  $('pvPlay').textContent=SAVE.ranks[n]?'Replay chapter':'Play chapter';}
+function playChapter(n){SND.play('select');fadeTo(()=>startIsland(n));}
+$('pvPlay').addEventListener('click',()=>{SND.init();playChapter(mapSel);});
+addEventListener('keydown',e=>{if(curScreen!=='s-map')return;
+  if(e.code==='ArrowDown'||e.code==='KeyS'){if(mapSel<SAVE.unlocked){selectChapter(mapSel+1);SND.play('blip');}e.preventDefault();}
+  if(e.code==='ArrowUp'||e.code==='KeyW'){if(mapSel>1){selectChapter(mapSel-1);SND.play('blip');}e.preventDefault();}
+  if(e.code==='Enter'&&document.activeElement&&!document.activeElement.closest('.map-bottom')){playChapter(mapSel);e.preventDefault();}});
+let chapterT=0;
+function showChapter(n){const I=ISLANDS[n-1];$('chImg').style.backgroundImage=`url(${ASSETS['isl'+n]})`;$('chNum').textContent=`Chapter ${n}`;$('chName').textContent=I.name;$('chDesc').textContent=I.desc;
+  $('chapter').classList.add('on');chapterT=2.6;}
 
 // ===== Starting scenes =====
-function resetRun(){Game.projs=[];Game.npcs=[];Game.boss=null;Game.combo=0;Game.comboT=0;Game.deadT=0;Game.slowT=0;Game.dark=0;Game.darkT=0;Game.linaEvent=false;Game.flash=0;Game.cut=false;closeDialog();Game.wx=[];}
+function resetRun(){$('chapter').classList.remove('on');chapterT=0;Game.projs=[];Game.npcs=[];Game.boss=null;Game.combo=0;Game.comboT=0;Game.deadT=0;Game.slowT=0;Game.dark=0;Game.darkT=0;Game.linaEvent=false;Game.flash=0;Game.cut=false;closeDialog();Game.wx=[];}
 function startIntro(){resetRun();Game.mode='cut';Game.n=1;world=genIntro();Game.world=world;Game.player=makePlayer(70,222);Game.camX=0;show(null);$('skip').classList.add('on');runScript(introScript());}
 function startIsland(n,keepStats){resetRun();Game.n=n;Game.mode='play';world=genLevel(n);Game.world=world;Game.player=makePlayer(world.start.x,world.start.y);Game.camX=0;
   if(!keepStats){Game.lives=3;Game.stats={time:0,kills:0,coins:0,dmg:0,score:0};}
@@ -94,7 +113,7 @@ function startArena(n){resetRun();Game.n=n;Game.mode='arena';world=genArena(n);G
   Game.camX=0;show(null);SND.music(null);$('islandName').textContent=world.isl.name;runScript(bossIntro(n));}
 
 function* levelStart(n){const I=ISLANDS[n-1];Game.cut=true;const p=Game.player;p.state='cut';p.x=-20;p.auto={ix:1,spd:120};
-  showBanner(`Island ${n}`,I.name,1.8);yield 0.55;p.auto=null;p.state='normal';Game.cut=false;yield 1.4;showBanner('Go!','',0.7);
+  showChapter(n);yield 0.55;p.auto=null;p.state='normal';Game.cut=false;yield 2.3;showBanner('Go!','',0.7);
   if(n===1){yield 1.6;showBanner('Move and jump',isTouch?'Joystick + JUMP (tap twice to double jump)':'Arrows or A/D + Space (twice to double jump)',3);
     yield 4;showBanner('Combo!',isTouch?'Tap PUNCH 3 times':'Press J 3 times',2.6);yield 5;showBanner('Energy blast',isTouch?'BLAST uses a blue bar':'K uses a blue bar',2.6);}}
 
@@ -215,15 +234,33 @@ function drawWeather(){for(const w of Game.wx){const a=Math.min(1,(w.life-w.t)/0
   default:R(w.x,w.y,2,1+(Math.sin(w.t*6)>0?1:0),w.col);}}G.globalAlpha=1;}
 
 // ===== Rendering =====
-function drawGround(s,I){const bottom=H+60;G.fillStyle=world.bg.pat;G.fillRect(Math.round(s.x),s.y,Math.round(s.w),bottom-s.y);
-  R(s.x,s.y,2,bottom-s.y,shade(I.dirt,0.6));R(s.x+s.w-2,s.y,2,bottom-s.y,shade(I.dirt,0.6));
-  R(s.x-1,s.y-1,s.w+2,1,shade(I.top,0.5));R(s.x,s.y,s.w,5,I.top);R(s.x,s.y,s.w,1,I.topHi);
-  for(let x=Math.ceil(s.x/3)*3;x<s.x+s.w-2;x+=3){const h=((x*7)%5)>2?2:1;R(x,s.y+5,2,h,I.top);}
-  if(I.lava){for(let x=Math.ceil(s.x/9)*9;x<s.x+s.w;x+=9){if(((x*13)%7)<2)R(x,s.y+1,4,1,'#ffb13a');}}}
-function drawPlat(p,I){const x=Math.round(p.x),y=Math.round(p.y);
-  if(p.ledge){R(x,y,p.w,6,'#cfc8ba');R(x,y,p.w,1,'#fff');for(let i=0;i<4;i++)R(x+3+i*3,y+6+i*3,p.w-6-i*6,3,'#9f98a8');return;}
-  R(x-1,y-1,p.w+2,1,shade(I.top,0.5));R(x,y,p.w,4,I.top);R(x,y,p.w,1,I.topHi);for(let i=0;i<5;i++){const w=p.w-4-i*(p.w/7);if(w>2)R(x+(p.w-w)/2,y+4+i*3,w,3,i%2?I.dirt2:I.dirt);}
-  if(p.mov){R(x+p.w/2-2,y+2,4,2,'#F5B83D');}}
+function hsh(x){x=Math.sin(x*127.1)*43758.5453;return x-Math.floor(x);}
+function drawGround(s,I){const x=Math.round(s.x),y=Math.round(s.y),w=Math.round(s.w);const D=26;
+  const rock=I.dirt,rk2=shade(I.dirt,0.72),ol=shade(I.dirt2,0.6);
+  // underside taper
+  const T=Math.min(70,Math.max(24,w*0.32));
+  for(let i=0;i<T;i+=2){const t=i/T;const ins=(w/2)*Math.pow(t,1.5)+(hsh(x+i)*4-2);const rw=w-ins*2;if(rw<2)break;
+    R(x+ins,y+D+i,rw,2,shade(rock,0.92-t*0.35));R(x+ins,y+D+i,Math.max(1,rw*0.12),2,shade(rock,1.1-t*0.3));R(x+w-ins-rw*0.2,y+D+i,rw*0.2,2,shade(rock,0.7-t*0.25));}
+  for(let sx=x+10;sx<x+w-10;sx+=17){const hv=hsh(sx);if(hv<0.45)continue;const t=Math.abs((sx-x)/w-0.5)*2;const base=y+D+(T*Math.pow(t,0.67))*0.5;const L=6+hv*14*(1-t);
+    for(let k=0;k<L;k++)R(sx-(1-k/L)*2,base+k,Math.max(1,(1-k/L)*4),1,shade(rock,0.62));}
+  // soil body
+  G.fillStyle=world.bg.pat;G.fillRect(x,y,w,D);
+  R(x,y+D-3,w,3,rk2);R(x,y+D-1,w,1,ol);
+  R(x,y,2,D,shade(rock,1.2));R(x+w-3,y,3,D,rk2);
+  // grass cap + drips + blades
+  R(x-1,y-1,w+2,6,I.top);R(x-1,y-1,w+2,1,I.topHi);R(x-1,y+5,w+2,1,shade(I.top,0.72));
+  for(let i=0;i<w;i+=3){const h=hsh(x+i*1.7);if(h>0.35)R(x+i,y+5,2,1+Math.floor(h*3),I.top);if(h>0.55)R(x+i,y-2-(h>0.8?1:0),1,2+(h>0.8?1:0),I.topHi);}
+  if(!I.lava)for(let i=8;i<w-6;i+=13){const h=hsh(x*3+i);if(h<0.78)continue;const L=6+Math.floor(h*16);const vc=shade(I.top,0.68);for(let k=0;k<L;k++)R(x+i+Math.round(Math.sin(k*0.5)*0.8),y+6+k,1,1,vc);R(x+i-1,y+6+L,3,2,I.top);}
+  if(I.lava){for(let i=0;i<w;i+=7){const h=hsh(x+i);if(h>0.6)R(x+i,y,3,1,'#ffd27a');}const gl=0.5+Math.sin(world.t*3+x)*0.2;G.globalAlpha=gl;R(x-1,y-1,w+2,1,'#ff9a3a');G.globalAlpha=1;}
+  if(I.shadow){for(let i=0;i<w;i+=9)if(hsh(x+i)>0.7)R(x+i,y+1,1,1,'#e6c8ff');}
+}
+function drawPlat(p,I){const x=Math.round(p.x),y=Math.round(p.y),w=p.w;
+  if(p.ledge){R(x,y,w,6,'#cfc8ba');R(x,y,w,1,'#fff');for(let i=0;i<4;i++)R(x+3+i*3,y+6+i*3,w-6-i*6,3,'#9f98a8');return;}
+  const H2=Math.max(8,Math.round(w*0.32));
+  for(let i=0;i<H2;i++){const t=i/H2;const ins=(w/2)*Math.pow(t,1.3);R(x+ins,y+4+i,w-ins*2,1,shade(I.dirt,1-t*0.35));R(x+ins,y+4+i,Math.max(1,(w-ins*2)*0.2),1,shade(I.dirt,1.15-t*0.3));}
+  R(x-1,y-1,w+2,5,I.top);R(x-1,y-1,w+2,1,I.topHi);R(x-1,y+4,w+2,1,shade(I.top,0.72));
+  for(let i=1;i<w;i+=4){if(hsh(x+i)>0.5)R(x+i,y+5,2,1+(hsh(i+x)>0.8?1:0),I.top);}
+  if(p.mov){const gl=0.6+Math.sin(world.t*6)*0.4;G.globalAlpha=gl;R(x+w/2-3,y+H2+5,6,2,'#9fd8ff');G.globalAlpha=1;}}
 function drawGate(g,I,t){const x=g.x,y=g.y;R(x-24,y-56,8,56,'#8a8478');R(x+16,y-56,8,56,'#8a8478');R(x-28,y-62,56,8,'#a69f92');R(x-28,y-62,56,2,'#d6d0c2');
   for(let i=0;i<46;i++){const yy=y-52+i;const w=Math.sin(i/46*PI)*16;const c=Math.sin(t*6-i*0.3)>0?I.topHi:mixHex(I.top,'#ffffff',0.3);R(x-w,yy,w*2,1,c);}
   G.globalAlpha=0.5+Math.sin(t*4)*0.2;R(x-14,y-48,28,44,'#ffffff');G.globalAlpha=1;
@@ -231,7 +268,7 @@ function drawGate(g,I,t){const x=g.x,y=g.y;R(x-24,y-56,8,56,'#8a8478');R(x+16,y-
   const ax=x-50+Math.sin(t*5)*3;R(ax,y-30,8,2,'#F5B83D');R(ax+6,y-32,2,6,'#F5B83D');R(ax+8,y-31,1,4,'#F5B83D');}
 function drawFlag(f){R(f.x,f.y-30,2,30,'#d9d4c8');const c=f.on?'#E0362C':'#6a6a7a';const fy=f.y-30+(1-f.raise)*18;for(let i=0;i<7;i++)R(f.x+2,fy+i,10-i*1.2,1,c);R(f.x-1,f.y-32,4,3,'#F5B83D');}
 function drawTitleBG(t){const img=IMG.title;ctx.fillStyle='#0a1a44';ctx.fillRect(0,0,W,H);
-  if(img.complete&&img.naturalWidth){const sc=W/img.naturalWidth*1.06;const h=img.naturalHeight*sc;const off=(1-Math.cos(t*0.12))/2;ctx.drawImage(img,-8,-(h-H)*off*0.6,img.naturalWidth*sc,h);}
+  if(img.complete&&img.naturalWidth){const sc=W/img.naturalWidth*1.06;const h=img.naturalHeight*sc;const off=0.3+(1-Math.cos(t*0.1))/2*0.35;ctx.drawImage(img,-8,-(h-H)*off,img.naturalWidth*sc,h);}
   ctx.fillStyle='rgba(7,13,34,.15)';ctx.fillRect(0,0,W,H);
   if(Game.mode!=='start'){const g=ctx.createLinearGradient(W*0.55,0,W,0);g.addColorStop(0,'rgba(7,13,34,0)');g.addColorStop(1,'rgba(7,13,34,.65)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
   updWeather(1/60,'spark');G=ctx;drawWeather();}
@@ -292,6 +329,7 @@ let last=performance.now();
 function frame(now){let dt=Math.min(0.05,(now-last)/1000);last=now;Game.t+=dt;
   tickInput(dt);updateInputAxis();
   if(bannerT>0){bannerT-=dt;if(bannerT<=0)$('banner').classList.remove('on');}
+  if(chapterT>0){chapterT-=dt;if(chapterT<=0)$('chapter').classList.remove('on');}
   if(Game.fadeDir){Game.fade=clamp(Game.fade+Game.fadeDir*dt*3.2,0,1);if(Game.fadeDir>0&&Game.fade>=1){const cb=Game.fadeCb;Game.fadeCb=null;Game.fadeDir=-1;if(cb)cb();}else if(Game.fadeDir<0&&Game.fade<=0)Game.fadeDir=0;}
   const inWorld=Game.mode==='play'||Game.mode==='arena'||Game.mode==='cut';
   if(inWorld&&consume('pause')&&!Game.fadeDir){togglePause();}
@@ -351,10 +389,10 @@ $('stage').addEventListener('pointerdown',e=>{SND.init();if(Dlg.on&&!e.target.cl
 $('s-start').addEventListener('pointerdown',()=>{SND.init();SND.play('select');goTitle();});
 addEventListener('keydown',e=>{if(Game.mode==='start'&&(e.code==='Enter'||e.code==='Space')){SND.init();SND.play('select');goTitle();}},true);
 // settings
-function syncSettings(){$('optMusic').value=SAVE.opt.music;$('optSfx').value=SAVE.opt.sfx;
+function syncSettings(){$('optMusic').value=SAVE.opt.music;$('optSfx').value=SAVE.opt.sfx;$('optMusic').style.setProperty('--p',SAVE.opt.music+'%');$('optSfx').style.setProperty('--p',SAVE.opt.sfx+'%');
   document.querySelectorAll('.seg').forEach(s=>{const k=s.dataset.opt;s.querySelectorAll('button').forEach(b=>b.classList.toggle('on',String(SAVE.opt[k])===b.dataset.v));});}
-$('optMusic').addEventListener('input',e=>{SAVE.opt.music=+e.target.value;SND.vol();persist();});
-$('optSfx').addEventListener('input',e=>{SAVE.opt.sfx=+e.target.value;SND.vol();persist();SND.play('coin');});
+$('optMusic').addEventListener('input',e=>{SAVE.opt.music=+e.target.value;e.target.style.setProperty('--p',e.target.value+'%');SND.vol();persist();});
+$('optSfx').addEventListener('input',e=>{SAVE.opt.sfx=+e.target.value;e.target.style.setProperty('--p',e.target.value+'%');SND.vol();persist();SND.play('coin');});
 document.querySelectorAll('.seg').forEach(s=>s.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=s.dataset.opt;let v=b.dataset.v;
   if(k==='vib'||k==='shake')v=+v;SAVE.opt[k]=v;persist();syncSettings();if(k==='vib'&&v)vibrate(60);if(k==='touch')layout();}));
 $('resetBtn').addEventListener('click',()=>{if(confirm('Erase all progress and start over?')){const o=SAVE.opt;SAVE=JSON.parse(JSON.stringify(DEFAULT_SAVE));SAVE.opt=o;persist();showBanner('Save erased','',1);}});
