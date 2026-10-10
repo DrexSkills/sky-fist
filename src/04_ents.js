@@ -1,17 +1,19 @@
 // ===== Player =====
 const MOVES={
- p1:{dur:0.24,a0:0.04,a1:0.11,box:[5,-25,16,10],dmg:1,kb:90,up:-30,pose:'punch1',lunge:70,next:'p2',sfx:'punch'},
- p2:{dur:0.26,a0:0.05,a1:0.12,box:[5,-25,18,10],dmg:1,kb:100,up:-40,pose:'punch2',lunge:90,next:'k3',sfx:'punch'},
- k3:{dur:0.42,wind:0.07,a0:0.09,a1:0.2,box:[3,-25,23,15],dmg:2,kb:250,up:-170,pose:'kick',lunge:120,sfx:'kick',big:true},
- air:{dur:0.4,a0:0.04,a1:0.32,box:[1,-17,19,13],dmg:2,kb:170,up:-80,pose:'airkick',sfx:'kick',air:true},
+ p1:{dur:0.24,a0:0.04,a1:0.11,box:[5,-32,19,12],dmg:1,kb:90,up:-30,pose:'punch1',lunge:70,next:'p2',sfx:'punch'},
+ p2:{dur:0.26,a0:0.05,a1:0.12,box:[5,-32,21,12],dmg:1,kb:100,up:-40,pose:'punch2',lunge:90,next:'k3',sfx:'punch'},
+ k3:{dur:0.42,wind:0.07,a0:0.09,a1:0.2,box:[3,-32,27,18],dmg:2,kb:250,up:-170,pose:'kick',lunge:120,sfx:'kick',big:true},
+ air:{dur:0.4,a0:0.04,a1:0.32,box:[1,-22,22,15],dmg:2,kb:170,up:-80,pose:'airkick',sfx:'kick',air:true},
 };
 function diffMult(){return SAVE.opt.diff==='easy'?0.5:SAVE.opt.diff==='hard'?1.5:1;}
 function makePlayer(x,y){const maxHp=10+Math.min(SAVE.unlocked-1,6)*2;
-  return{kind:'player',x,y,vx:0,vy:0,w:11,h:28,f:1,onGround:false,hp:maxHp,maxHp,mana:1,state:'normal',st:0,move:null,hitSet:null,inv:0,coy:0,jumps:0,airDash:true,dashCd:0,power:0,
+  return{kind:'player',x,y,vx:0,vy:0,w:12,h:35,sq:1,f:1,onGround:false,hp:maxHp,maxHp,mana:1,state:'normal',st:0,move:null,hitSet:null,inv:0,coy:0,jumps:0,airDash:true,dashCd:0,power:0,
     t:0,ph:0,pose:Object.assign({},POSES.idle(0)),queued:false,spin:0,rising:false,safe:{x,y},dead:false,auto:null,def:DEF.kai,poseName:'idle'};}
 function pSetState(p,s){p.state=s;p.st=0;}
-function startMove(p,m){const M=MOVES[m];p.move=m;p.hitSet=new Set();p.queued=false;pSetState(p,'attack');
+function startMove(p,m){const M=MOVES[m];p.move=m;p.swooshed=false;p.hitSet=new Set();p.queued=false;pSetState(p,'attack');
   if(Input.ix&&!M.air)p.f=Input.ix>0?1:-1;if(M.lunge)p.vx=p.f*M.lunge;if(M.air&&p.vy>0)p.vy*=0.4;SND.play('whiff');}
+function swoosh(p,M){const big=M.big||M.air;const cy=p.y-(M.air?18:27);
+  part('swoosh',p.x+p.f*4,cy,{life:0.16,max:0.16,f:p.f,r:big?17:13,a0:big?-1.5:-0.8,a1:big?1.0:0.45,col:big?'255,226,120':'255,255,255'});}
 function trySpecial(p){
   if(p.mana>=2.999){pSetState(p,'super');p.vx=0;SND.play('superb');Game.flash=0.25;showBanner('Sky Fist!','',0.9);vibrate([30,30,60]);return;}
   if(p.mana>=1){pSetState(p,'special');p.vx*=0.3;return;}
@@ -28,7 +30,7 @@ function updPlayer(p,dt){
     if(ix)p.f=ix>0?1:-1;
     const tgt=ix*138,acc=p.onGround?1500:950;p.vx=p.vx<tgt?Math.min(tgt,p.vx+acc*dt):Math.max(tgt,p.vx-acc*dt);
     if(ctl&&Input.pressed.jump>0){
-      if(p.coy>0){Input.pressed.jump=0;p.vy=-345;p.coy=0;p.jumps=1;p.rising=true;SND.play('jump');dust(p.x,p.y,5);}
+      if(p.coy>0){Input.pressed.jump=0;p.sq=1.22;p.vy=-345;p.coy=0;p.jumps=1;p.rising=true;SND.play('jump');dust(p.x,p.y,5);}
       else if(p.jumps<2){Input.pressed.jump=0;p.vy=-315;p.jumps=2;p.rising=true;p.spin=0.32;SND.play('djump');part('ring',p.x,p.y,{life:0.2,max:0.2,size:3,col:'#bfe0ff'});}
     }
     if(ctl&&consume('atk'))startMove(p,p.onGround?'p1':'air');
@@ -40,6 +42,7 @@ function updPlayer(p,dt){
     if(ctl&&Input.pressed.atk>0&&p.st>M.a0){consume('atk');p.queued=true;}
     if(ctl&&Input.pressed.spc>0&&p.st>M.a1){consume('spc');trySpecial(p);break;}
     if(ctl&&Input.pressed.dsh>0&&p.st>M.a1&&p.dashCd<=0){consume('dsh');pSetState(p,'dash');if(ix)p.f=ix>0?1:-1;p.dashCd=0.45;SND.play('dash');break;}
+    if(p.st>=M.a0&&!p.swooshed){p.swooshed=true;swoosh(p,M);}
     if(p.st>=M.a0&&p.st<=M.a1)attackHits(p,M);
     if(p.queued&&M.next&&p.st>=M.a1+0.02){startMove(p,M.next);break;}
     if(p.queued&&!M.next&&!M.air&&p.st>=M.dur-0.04){startMove(p,'p1');break;}
@@ -48,14 +51,14 @@ function updPlayer(p,dt){
     break;}
   case'special':{p.vx*=Math.pow(0.01,dt);if(!p.onGround)p.vy=Math.min(p.vy,40);
     if(p.st>=0.15&&!p.fired){p.fired=true;p.mana-=1;SND.play('blast');
-      Game.projs.push({x:p.x+p.f*14,y:p.y-21,vx:p.f*300,vy:0,r:6,dmg:3,owner:'p',type:'blast',life:1.6,f:p.f,hit:new Set()});
+      Game.projs.push({x:p.x+p.f*17,y:p.y-27,vx:p.f*300,vy:0,r:6,dmg:3,owner:'p',type:'blast',life:1.6,f:p.f,hit:new Set()});
       p.vx=-p.f*60;Game.shake=Math.max(Game.shake,2);}
     if(p.st>=0.42){p.fired=false;pSetState(p,'normal');}
     break;}
   case'super':{p.vx=0;p.vy=Math.min(p.vy,0);p.noGrav=true;
     if(p.st<0.35&&Math.random()<0.7)part('glow',p.x+rnd(-18,18),p.y-rnd(0,40),{vx:0,vy:-30,life:0.4,max:0.4,size:3,col:'#F5B83D'});
     if(p.st>=0.35&&!p.fired){p.fired=true;p.mana=0;SND.play('boom');Game.shake=6;
-      Game.projs.push({x:p.x+p.f*18,y:p.y-24,vx:p.f*270,vy:0,r:16,dmg:10,owner:'p',type:'fist',life:2.2,f:p.f,hit:new Set(),pierce:true});}
+      Game.projs.push({x:p.x+p.f*22,y:p.y-30,vx:p.f*270,vy:0,r:16,dmg:10,owner:'p',type:'fist',life:2.2,f:p.f,hit:new Set(),pierce:true});}
     if(p.st>=0.7){p.fired=false;p.noGrav=false;pSetState(p,'normal');}
     break;}
   case'dash':{p.vx=p.f*340;p.vy=0;p.noGrav=true;p.inv=Math.max(p.inv,0.05);
@@ -68,7 +71,8 @@ function updPlayer(p,dt){
   }
   if(p.rising&&(p.vy>=0||!Input.held.jump)){if(p.vy<-150&&!Input.held.jump&&!Game.cut)p.vy=-150;p.rising=false;}
   moveBody(p,dt);
-  if(!wasGround&&p.onGround&&vyb>180){SND.play('land');dust(p.x,p.y,6);}
+  if(!wasGround&&p.onGround&&vyb>180){SND.play('land');dust(p.x,p.y,6);p.sq=0.78;}
+  p.sq+=(1-p.sq)*Math.min(1,dt*12);
   if(p.onGround&&p.ground&&!world.arena){const s=p.ground;if(p.x>s.x+16&&p.x<s.x+s.w-16)p.safe={x:p.x,y:s.y};}
   // pose
   let tgt,rate=20;const sp=Math.abs(p.vx);
@@ -206,7 +210,7 @@ function drawEnemy(e){FLASH=e.flash>0;
 
 // ===== Bosses =====
 function makeBoss(key,x,y){const C=CHAMPS[key];const hp=Math.ceil(C.hp*(SAVE.opt.diff==='hard'?1.25:SAVE.opt.diff==='easy'?0.75:1));const d=DEF[C.def];
-  const s=d.s;return{kind:'boss',key,C,def:d,x,y,vx:0,vy:0,w:Math.round(12*s+(key==='gorrak'?10:0)),h:Math.round(28*s+(key==='gorrak'?6:0)),f:-1,hp,maxHp:hp,t:0,st:0,state:'intro',cd:1.2,
+  const s=d.s;return{kind:'boss',key,C,def:d,x,y,vx:0,vy:0,w:Math.round(13*s+(key==='gorrak'?10:0)),h:Math.round(34*s+(key==='gorrak'?4:0)),f:-1,hp,maxHp:hp,t:0,st:0,state:'intro',cd:1.2,
     pose:Object.assign({},POSES.stand(0)),flash:0,dead:false,move:null,hits:0,alpha:1,phase:1,s};}
 function hitBoss(b,dmg,dir,hx,hy,big){
   if(b.state==='intro'||b.state==='dead'||b.intang)return;
@@ -329,3 +333,9 @@ function drawProj(q){const x=Math.round(q.x),y=Math.round(q.y),t=q.t||0;
   case'flowerT':R(x-3,y-3,3,3,'#fff');R(x,y-3,3,3,'#fff');R(x-3,y,3,3,'#fff');R(x,y,3,3,'#fff');R(x-1,y-1,2,2,'#F5B83D');break;
   case'quake':{const h=8+Math.sin(t*30)*3;R(x-4,y-h+4,8,h,'#d9c8a8');R(x-2,y-h,4,4,'#fff');R(x-6,y+2,12,2,'#8a7a5a');break;}
   }}
+
+// ===== Ground shadow =====
+function groundBelow(x,y){let best=null;for(const s of world.ground)if(x>=s.x&&x<=s.x+s.w&&s.y>=y-1&&(best===null||s.y<best))best=s.y;
+  for(const p of world.plats)if(x>=p.x&&x<=p.x+p.w&&p.y>=y-1&&(best===null||p.y<best))best=p.y;return best;}
+function drawShadow(e,wid){const gy=groundBelow(e.x,e.y);if(gy===null)return;const d=gy-e.y;if(d>120)return;const k=1-d/140;const w=Math.round((wid||e.w*1.3)*k);if(w<3)return;
+  G.globalAlpha=0.28*k;R(e.x-w/2,gy-1,w,2,'#000');R(e.x-w/2+2,gy-2,w-4,1,'#000');G.globalAlpha=1;}

@@ -26,17 +26,17 @@ const CHAMPS={
 };
 const ETYPES={
  slime:{w:14,h:11,hp:3,draw:drawSlime,ai:'hopper',dmg:1},
- goblin:{w:10,h:22,hp:4,def:'goblin',ai:'brawler',spd:55,dmg:1,reach:16,wind:0.4},
+ goblin:{w:11,h:26,hp:4,def:'goblin',ai:'brawler',spd:55,dmg:1,reach:16,wind:0.4},
  wolf:{w:22,h:13,hp:4,draw:drawWolf,ai:'lunger',spd:55,dmg:1},
  bird:{w:14,h:10,hp:2,draw:drawBird,ai:'flyer',dmg:1,fly:true},
  bat:{w:12,h:9,hp:2,draw:drawBat,ai:'flyer',dmg:1,fly:true,erratic:true},
- skeleton:{w:10,h:26,hp:4,def:'skeleton',ai:'thrower',spd:38,dmg:1,proj:'bone'},
- orc:{w:14,h:32,hp:7,def:'orc',ai:'brawler',spd:45,dmg:2,reach:20,wind:0.55,heavy:true},
- ninja:{w:10,h:28,hp:4,def:'ninja',ai:'ninja',spd:80,dmg:1,reach:14,wind:0.3,proj:'shuriken'},
+ skeleton:{w:11,h:32,hp:4,def:'skeleton',ai:'thrower',spd:38,dmg:1,proj:'bone'},
+ orc:{w:15,h:39,hp:7,def:'orc',ai:'brawler',spd:45,dmg:2,reach:20,wind:0.55,heavy:true},
+ ninja:{w:11,h:34,hp:4,def:'ninja',ai:'ninja',spd:80,dmg:1,reach:14,wind:0.3,proj:'shuriken'},
  turtle:{w:20,h:12,hp:5,draw:drawTurtle,ai:'spinner',spd:22,dmg:1},
- golemE:{w:18,h:36,hp:10,def:'golemE',ai:'slammer',spd:30,dmg:2,heavy:true},
+ golemE:{w:19,h:44,hp:10,def:'golemE',ai:'slammer',spd:30,dmg:2,heavy:true},
  fireel:{w:14,h:22,hp:4,draw:drawFireEl,ai:'caster',dmg:1,fly:true,proj:'fire'},
- ogre:{w:20,h:42,hp:12,def:'ogre',ai:'slammer',spd:34,dmg:2,heavy:true},
+ ogre:{w:21,h:52,hp:12,def:'ogre',ai:'slammer',spd:34,dmg:2,heavy:true},
 };
 
 // ===== World =====
@@ -105,7 +105,7 @@ function drawSky(I,camX,t){
   const bg=world.bg;
   const tile=(c,par,drift,yo)=>{const x=-(((camX*par+t*(drift||0))%960)+960)%960;ctx.drawImage(c,Math.round(x),yo||0);ctx.drawImage(c,Math.round(x)+960,yo||0);};
   tile(bg.far,0.04,0);
-  if(bg.art){const ax=Math.round((world.arena?W/2-bg.art.width/2+120:330)-camX*0.06);ctx.globalAlpha=0.6;ctx.drawImage(bg.art,ax,0);ctx.globalAlpha=1;}
+  if(bg.art){const ax=Math.round((world.arena?360:330+W-480)-camX*0.06);ctx.globalAlpha=0.6;ctx.drawImage(bg.art,ax,0);ctx.globalAlpha=1;}
   tile(bg.cl,0.08,3);tile(bg.mid,0.14,0);tile(bg.near,0.26,0);tile(bg.sea,0.4,6,10);
 }
 
@@ -183,9 +183,9 @@ function genLevel(n){
   w.start={x:40,y:G0};
   return w;
 }
-function genArena(n){const w=newWorld(n,true);w.ground.push({x:-100,w:680,y:228});w.wallL=16;w.wallR=464;w.len=480;
-  const I=w.isl;const pr=I.props;w.props.push({k:pr[0],x:40,y:228},{k:pr[1%pr.length],x:440,y:228});w.start={x:110,y:228};return w;}
-function genIntro(){const w=newWorld(1,true);w.ground.push({x:-100,w:680,y:222});w.wallL=-50;w.wallR=530;w.len=480;
+function genArena(n){const w=newWorld(n,true);w.ground.push({x:-300,w:1080,y:228});w.wallL=16;w.wallR=464;w.len=480;
+  const I=w.isl;const pr=I.props;w.props.push({k:pr[0],x:40,y:228},{k:pr[1%pr.length],x:440,y:228},{k:'banner',x:6,y:228},{k:'banner',x:470,y:228},{k:pr[2%pr.length],x:-40,y:228},{k:pr[0],x:530,y:228});w.start={x:110,y:228};return w;}
+function genIntro(){const w=newWorld(1,true);w.ground.push({x:-300,w:1080,y:222});w.wallL=-150;w.wallR=630;w.len=480;
   w.props.push({k:'hut',x:40,y:222},{k:'tree',x:100,y:222},{k:'flower',x:130,y:222},{k:'flower',x:160,y:222},{k:'bush',x:200,y:222},{k:'hut',x:300,y:222},{k:'tree',x:380,y:222},{k:'flower',x:420,y:222},{k:'bush',x:450,y:222});return w;}
 
 // ===== Pickups =====
@@ -217,7 +217,10 @@ function drawParts(dt){for(const p of world.parts){
   case'num':drawNum(p.txt,p.x,Math.round(p.y),p.col,1);break;
   case'bit':R(p.x,p.y,p.size,p.size,p.col);break;
   case'glow':G.globalAlpha=a*0.6;R(p.x-p.size/2,p.y-p.size/2,p.size,p.size,p.col);G.globalAlpha=1;break;
-  case'after':G.globalAlpha=a*0.45;FLASH=false;if(p.fig){const prev=p.fig;drawFig(prev.d,prev.p,p.x,p.y,prev.f,{t:0});}G.globalAlpha=1;break;
+  case'after':G.globalAlpha=a*0.5;FLASH=true;FLASHCOL='#7fd0ff';if(p.fig){const prev=p.fig;drawFig(prev.d,prev.p,p.x,p.y,prev.f,{t:0});}FLASH=false;FLASHCOL='#fff';G.globalAlpha=1;break;
+  case'swoosh':{const pr=1-a;const s0=p.a0+(p.a1-p.a0)*Math.max(0,pr-0.25),s1=p.a0+(p.a1-p.a0)*Math.min(1,pr*1.6+0.2);const A=v=>p.f>0?v:PI-v;
+    G.lineCap='round';G.strokeStyle=`rgba(${p.col},${a*0.9})`;G.lineWidth=3;G.beginPath();if(p.f>0)G.arc(p.x,p.y,p.r,s0,s1);else G.arc(p.x,p.y,p.r,A(s1),A(s0));G.stroke();
+    G.strokeStyle=`rgba(${p.col},${a*0.4})`;G.lineWidth=1;G.beginPath();if(p.f>0)G.arc(p.x,p.y,p.r+4,s0,s1);else G.arc(p.x,p.y,p.r+4,A(s1),A(s0));G.stroke();break;}
   case'shock':{const w=(1-a)*60+6;G.globalAlpha=a;R(p.x-w,p.y-2,w*2,3,p.col);R(p.x-w*0.6,p.y-5,w*1.2,2,'#fff');G.globalAlpha=1;break;}
   }}}
 function updParts(dt){for(const p of world.parts){p.life-=dt;p.vy+=p.grav*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.type==='dust'){p.vx*=0.9;p.vy*=0.9;}}

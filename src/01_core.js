@@ -1,6 +1,6 @@
 'use strict';
 // ===== Utils =====
-const W=480,H=270;
+let W=480;const H=270;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
 const rnd=(a,b)=>a+Math.random()*(b-a);
