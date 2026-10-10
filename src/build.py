@@ -1,0 +1,5 @@
+s=open('index.tpl.html').read()
+js=''.join(open(f).read()+'\n' for f in ['01_core.js','02_draw.js','03_world.js','04_ents.js','05_game.js'])
+s=s.replace('/*__ASSETS__*/',open('assets.js').read()).replace('/*__GAME__*/',js)
+open('../index.html','w').write(s)
+print(len(s))
